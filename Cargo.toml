@@ -1,0 +1,9 @@
+[package]
+authors = ["Jeff Bryner <jeff@jeffbryner.com>"]
+name = "redis2es"
+version = "0.1.0"
+
+[dependencies]
+redis = "0.8.0"
+rs-es = "0.10.0"
+serde_json = "1.0.6"
