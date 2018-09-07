@@ -1,6 +1,8 @@
 extern crate redis;
 extern crate serde_json;
 extern crate rs_es;
+extern crate cpython;
+
 use std::thread;
 use std::io;
 use redis::{Client, Commands};
@@ -8,6 +10,7 @@ use std::error::Error;
 use std::io::{Write, stderr};
 use serde_json::Value;
 use rs_es::operations::bulk::Action;
+use cpython::{Python, PyDict, PyResult, PyTuple};
 
 static NTHREADS: i32 = 4;
 static NITEMS: usize = 50;
@@ -24,9 +27,14 @@ fn print_error(mut err: &Error) {
     }
 }
 
-//fn post_actions<T>(es_client: rs_es::Client, actions: Vec<T>){
-//    println!("Posting would happen now")
-//}
+fn send_event_to_plugins(py: Python)->PyResult<()>{
+    let locals = PyDict::new(py);
+    locals.set_item(py, "mozdef_event_plugin", py.import("mozdef_event_plugin")?)?;
+    let plugin_result: PyTuple = py.eval("mozdef_event_plugin.sendEventToPlugins('something','default','nothing')",None,Some(&locals))?.extract(py)?;
+
+    println!("plugin output: {},{}", plugin_result.get_item(py,0),plugin_result.get_item(py,1));
+    Ok(())
+}
 
 fn run() -> io::Result<()> {
 
@@ -36,6 +44,8 @@ fn run() -> io::Result<()> {
     for i in 0..NTHREADS{
 
         children.push (thread::spawn(move || {
+            // init gil for this thread
+            let gil = Python::acquire_gil();
             // setup the thread with connections
             let redis_client = Client::open("redis://127.0.0.1/").unwrap();
             let conn = redis_client.get_connection().unwrap();
@@ -62,6 +72,9 @@ fn run() -> io::Result<()> {
                     //println!("thread {}, raw json {:?}",i,json);
                     let v: Value = serde_json::from_str(&json).unwrap();
                     //println!("thread {}, json.summary {}",i,v["summary"]);
+
+                    // placeholder POC code to call external python lib
+                    send_event_to_plugins(gil.python()).unwrap();
                     actions.push(Action::index(v).with_index("events").with_doc_type("rustevent"));
                     //println!("thread {}, actions length: {:?}",i, actions.len());
                     if actions.len() >= NITEMS {
