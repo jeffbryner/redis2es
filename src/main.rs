@@ -27,10 +27,12 @@ fn print_error(mut err: &Error) {
     }
 }
 
-fn send_event_to_plugins(py: Python)->PyResult<()>{
+fn send_event_to_plugins(py: Python, event: &String)->PyResult<()>{
     let locals = PyDict::new(py);
     locals.set_item(py, "mozdef_event_plugin", py.import("mozdef_event_plugin")?)?;
-    let plugin_result: PyTuple = py.eval("mozdef_event_plugin.sendEventToPlugins('something','default','nothing')",None,Some(&locals))?.extract(py)?;
+    locals.set_item(py,"anevent",event)?;
+    locals.set_item(py,"metadata","localmetadata")?;
+    let plugin_result: PyTuple = py.eval("mozdef_event_plugin.sendEventToPlugins(anevent,metadata,'nothing')",None,Some(&locals))?.extract(py)?;
 
     println!("plugin output: {},{}", plugin_result.get_item(py,0),plugin_result.get_item(py,1));
     Ok(())
@@ -74,9 +76,9 @@ fn run() -> io::Result<()> {
                     //println!("thread {}, json.summary {}",i,v["summary"]);
 
                     // placeholder POC code to call external python lib
-                    send_event_to_plugins(gil.python()).unwrap();
+                    send_event_to_plugins(gil.python(),&json).unwrap();
                     actions.push(Action::index(v).with_index("events").with_doc_type("rustevent"));
-                    //println!("thread {}, actions length: {:?}",i, actions.len());
+                    //println!("thread {}, actions length: {:?}"s,i, actions.len());
                     if actions.len() >= NITEMS {
                         let _ = es_client.bulk(&actions).send();
                         //println!("Thread {}, bulk finished",i);
