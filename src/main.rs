@@ -51,8 +51,9 @@ fn run() -> io::Result<()> {
             // setup the thread with connections
             let redis_client = Client::open("redis://127.0.0.1/").unwrap();
             let conn = redis_client.get_connection().unwrap();
-            let mut es_client = rs_es::Client::new("http://localhost:9200").expect("Failed to open elastic search connection");
-
+            let mut es_client = rs_es::Client::new("http://localhost:9200").unwrap();
+            let _ = es_client.version().send().expect("Failed to connect and check es version.. panic");
+            //println!("ES connection result: {:?}", es_client);
             // a place to hold our records until we are ready to bulk insert
             let mut actions = vec![];
             let mut json = String::from("");
@@ -62,7 +63,7 @@ fn run() -> io::Result<()> {
                 if json.starts_with("nil") {
                     //println!("Thread {}, Nothing left to do",i);
                     if actions.len() > 0{
-                        let es_result = es_client.bulk(&actions).send();
+                        let _ = es_client.bulk(&actions).send().expect("Failed to send bulk action.. panic");
                         println!("Thread {}, last bulk finished",i);
                         actions.clear();
                     }else{
@@ -80,7 +81,7 @@ fn run() -> io::Result<()> {
                     actions.push(Action::index(v).with_index("events").with_doc_type("rustevent"));
                     //println!("thread {}, actions length: {:?}"s,i, actions.len());
                     if actions.len() >= NITEMS {
-                        let es_result = es_client.bulk(&actions).send();
+                        let _es_result = es_client.bulk(&actions).send().expect("Failed to send bulk action.. panic");
                         //println!("Thread {}, bulk finished",i);
                         //println!("INDEX RESULT: {:?}", result_wrapped);
                         actions.clear();
